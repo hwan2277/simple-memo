@@ -1,16 +1,55 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Simple Memo | 나만의 메모장</title>
-<style>
-:root{font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#142b28;background:#f0f5f1}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}.app{width:min(100%,500px);background:#fff;border-radius:22px;box-shadow:0 16px 40px #1d453018;padding:32px}h1{margin:0 0 8px}.sub{color:#62736d;margin:0 0 25px}.field{display:block;margin:15px 0 6px;font-weight:600;font-size:14px}input,textarea{width:100%;border:1px solid #cad8d0;border-radius:10px;padding:13px;font:inherit}textarea{min-height:108px;resize:vertical}button{font:inherit;border:0;border-radius:10px;padding:12px 18px;cursor:pointer;background:#216b4b;color:white;font-weight:650}button:disabled{opacity:.5;cursor:not-allowed}button.alt{background:#e8f1eb;color:#285b43}button.danger{background:#fff0ef;color:#9b3129}.actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}.status{font-size:14px;min-height:22px;color:#426850}.status.error{color:#aa2929}.memo{padding:15px 0;border-bottom:1px solid #e4eae6;display:flex;justify-content:space-between;align-items:start;gap:12px}.memo p{white-space:pre-wrap;overflow-wrap:anywhere;margin:0}.memo time{display:block;color:#7b8f84;font-size:12px;margin-top:7px}header{display:flex;justify-content:space-between;align-items:start;gap:12px}#notes{margin-top:18px}small{color:#66786d}[hidden]{display:none!important}
-</style></head><body><main class="app"><header><div><h1>Simple Memo</h1><p class="sub">안전하게 나만 보는 메모</p></div><button id="logout" class="alt" hidden>로그아웃</button></header><section id="auth"><label class="field" for="email">이메일</label><input id="email" type="email" autocomplete="username" placeholder="name@example.com"><label class="field" for="password">비밀번호 (6자 이상)</label><input id="password" type="password" autocomplete="current-password" minlength="6"><div class="actions"><button id="signin">로그인</button><button id="signup" class="alt">회원가입</button></div></section><section id="board" hidden><label class="field" for="body">새 메모</label><textarea id="body" maxlength="3000" placeholder="메모 내용을 입력하세요"></textarea><div class="actions"><button id="save">메모 저장</button></div><h2>내 메모</h2><div id="notes"></div></section><p id="message" class="status" role="status" aria-live="polite"></p></main>
-<script type="module">
-import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-const sb=createClient('https://otdzemizigpbdsvcqjwf.supabase.co','sb_publishable_-5bQ88180pari4w_T1Cm3Q_J82B5v9C',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-const $=id=>document.getElementById(id),msg=(text,error=false)=>{$('message').textContent=text;$('message').classList.toggle('error',error)};
-async function refresh(){const {data:{user}}=await sb.auth.getUser();$('auth').hidden=!!user;$('board').hidden=!user;$('logout').hidden=!user;if(user)await list();}
-async function work(action){const email=$('email').value.trim(),password=$('password').value;if(!email||password.length<6){msg('이메일과 6자 이상 비밀번호를 입력하세요.',true);return;}msg('처리 중...');const {error}=action==='signup'?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});if(error)msg(error.message,true);else{msg(action==='signup'?'가입 요청 완료. 이메일 인증이 필요할 수 있습니다.':'로그인 완료');await refresh();}}
-$('signup').onclick=()=>work('signup');$('signin').onclick=()=>work('signin');$('logout').onclick=async()=>{const {error}=await sb.auth.signOut();msg(error?error.message:'로그아웃했습니다.',!!error);await refresh();};
-$('save').onclick=async()=>{const content=$('body').value.trim();if(!content)return msg('메모를 입력하세요.',true);$('save').disabled=true;const {error}=await sb.from('memos').insert({content});$('save').disabled=false;if(error)msg('저장 실패: '+error.message,true);else{$('body').value='';msg('메모를 저장했습니다.');await list();}};
-async function list(){const {data,error}=await sb.from('memos').select('id,content,created_at').order('created_at',{ascending:false});const el=$('notes');el.replaceChildren();if(error)return msg('조회 실패: '+error.message,true);if(!data.length){const p=document.createElement('small');p.textContent='아직 저장한 메모가 없습니다.';el.append(p);}for(const item of data){const r=document.createElement('article');r.className='memo';const t=document.createElement('div'),p=document.createElement('p'),stamp=document.createElement('time'),del=document.createElement('button');p.textContent=item.content;stamp.textContent=new Date(item.created_at).toLocaleString('ko-KR');del.textContent='삭제';del.className='danger';del.onclick=async()=>{if(!confirm('이 메모를 삭제할까요?'))return;del.disabled=true;const {error}=await sb.from('memos').delete().eq('id',item.id);msg(error?'삭제 실패: '+error.message:'메모를 삭제했습니다.',!!error);await list();};t.append(p,stamp);r.append(t,del);el.append(r);}}
-sb.auth.onAuthStateChange(()=>{setTimeout(refresh,0)});await refresh();
-</script></body></html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#216b4b">
+  <title>Simple Memo | 나만의 메모장</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#142b28;background:#f0f5f1}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}.app{width:min(100%,500px);background:#fff;border-radius:22px;box-shadow:0 16px 40px #1d453018;padding:32px}h1{margin:0 0 8px}.sub{color:#62736d;margin:0 0 25px}.field{display:block;margin:15px 0 6px;font-weight:600;font-size:14px}input,textarea{width:100%;border:1px solid #cad8d0;border-radius:10px;padding:13px;font:inherit}textarea{min-height:108px;resize:vertical}button{min-height:44px;font:inherit;border:0;border-radius:10px;padding:12px 18px;cursor:pointer;background:#216b4b;color:#fff;font-weight:650}button:disabled{opacity:.5;cursor:not-allowed}button.alt{background:#e8f1eb;color:#285b43}button.link{min-height:36px;padding:4px 0;color:#216b4b;background:transparent;font-size:13px}.danger{background:#fff0ef;color:#9b3129}.actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}.between{display:flex;align-items:center;justify-content:space-between;gap:10px}.between .field{margin-bottom:6px}.status{font-size:14px;min-height:22px;color:#426850;line-height:1.55}.status.error{color:#aa2929}.memo{padding:15px 0;border-bottom:1px solid #e4eae6;display:flex;justify-content:space-between;align-items:start;gap:12px}.memo p{white-space:pre-wrap;overflow-wrap:anywhere;margin:0}.memo time{display:block;color:#7b8f84;font-size:12px;margin-top:7px}header{display:flex;justify-content:space-between;align-items:start;gap:12px}#notes{margin-top:18px}.help{margin:16px 0 0;padding:13px;border-radius:10px;background:#f5f8f5;color:#63746b;font-size:13px;line-height:1.55}small{color:#66786d}[hidden]{display:none!important}@media(max-width:520px){body{padding:0}.app{min-height:100vh;border-radius:0;padding:28px 22px}}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header><div><h1>Simple Memo</h1><p class="sub">안전하게 나만 보는 메모</p></div><button id="logout" class="alt" hidden>로그아웃</button></header>
+    <section id="auth">
+      <label class="field" for="email">이메일</label><input id="email" type="email" autocomplete="username" placeholder="name@example.com">
+      <div class="between"><label class="field" for="password">비밀번호 (6자 이상)</label><button id="forgot" class="link" type="button">비밀번호 재설정</button></div>
+      <input id="password" type="password" autocomplete="current-password" minlength="6">
+      <div class="actions"><button id="signin" type="button">로그인</button><button id="signup" class="alt" type="button">회원가입</button></div>
+      <p class="help">기존 계정과 같은 이메일로 다시 가입해도 비밀번호는 변경되지 않습니다. 비밀번호가 기억나지 않으면 재설정을 이용하세요.</p>
+    </section>
+    <section id="reset" hidden>
+      <h2>비밀번호 재설정</h2><p class="sub">가입한 이메일로 안전한 복구 링크를 보내드립니다.</p>
+      <label class="field" for="reset-email">이메일</label><input id="reset-email" type="email" autocomplete="email" placeholder="name@example.com">
+      <div class="actions"><button id="send-reset" type="button">재설정 메일 보내기</button><button id="reset-back" class="alt" type="button">로그인으로</button></div>
+    </section>
+    <section id="recovery" hidden>
+      <h2>새 비밀번호 설정</h2><p class="sub">새 비밀번호는 8자 이상 입력하세요.</p>
+      <label class="field" for="new-password">새 비밀번호</label><input id="new-password" type="password" autocomplete="new-password" minlength="8">
+      <label class="field" for="confirm-password">새 비밀번호 확인</label><input id="confirm-password" type="password" autocomplete="new-password" minlength="8">
+      <div class="actions"><button id="save-password" type="button">새 비밀번호 저장</button></div>
+    </section>
+    <section id="board" hidden><label class="field" for="body">새 메모</label><textarea id="body" maxlength="5000" placeholder="메모 내용을 입력하세요"></textarea><div class="actions"><button id="save">메모 저장</button></div><h2>내 메모</h2><div id="notes"></div></section>
+    <p id="message" class="status" role="status" aria-live="polite"></p>
+  </main>
+  <script type="module">
+    import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.102.0/+esm';
+    const sb=createClient('https://otdzemizigpbdsvcqjwf.supabase.co','sb_publishable_-5bQ88180pari4w_T1Cm3Q_J82B5v9C',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    const $=id=>document.getElementById(id),msg=(text,error=false)=>{$('message').textContent=text;$('message').classList.toggle('error',error)};
+    let recoveryMode=/type=recovery/.test(location.search+location.hash);
+    const friendly=error=>({invalid_credentials:'이메일 또는 비밀번호가 올바르지 않습니다.',email_not_confirmed:'이메일 인증을 완료해 주세요.',over_email_send_rate_limit:'요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.'}[error?.code]||error?.message||'요청을 처리하지 못했습니다.');
+    function show(name){for(const id of ['auth','reset','recovery','board'])$(id).hidden=id!==name;$('logout').hidden=name!=='board';msg('');}
+    async function refresh(){if(recoveryMode)return show('recovery');const {data:{user}}=await sb.auth.getUser();show(user?'board':'auth');if(user)await list();}
+    async function work(action){const email=$('email').value.trim().toLowerCase(),password=$('password').value;if(!email||password.length<6)return msg('이메일과 6자 이상 비밀번호를 입력하세요.',true);msg('처리 중...');const {data,error}=action==='signup'?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});if(error)return msg(friendly(error)+(action==='signin'?' 비밀번호 재설정을 이용할 수 있습니다.':''),true);msg(action==='signup'?(data.session?'가입과 로그인이 완료되었습니다.':'가입 요청 완료. 인증 메일을 확인하세요. 기존 계정의 비밀번호는 변경되지 않습니다.'):'로그인 완료');await refresh();}
+    $('signup').onclick=()=>work('signup');$('signin').onclick=()=>work('signin');
+    $('forgot').onclick=()=>{$('reset-email').value=$('email').value.trim().toLowerCase();show('reset');};$('reset-back').onclick=()=>show('auth');
+    $('send-reset').onclick=async()=>{const email=$('reset-email').value.trim().toLowerCase();if(!email)return msg('가입한 이메일을 입력하세요.',true);$('send-reset').disabled=true;msg('재설정 메일을 요청하는 중...');const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:'https://hwan2277.github.io/simple-memo/'});$('send-reset').disabled=false;if(error)return msg(friendly(error),true);msg('계정이 존재하면 재설정 메일이 발송됩니다. 받은편지함과 스팸함을 확인하세요.');};
+    $('save-password').onclick=async()=>{const password=$('new-password').value,confirmation=$('confirm-password').value;if(password.length<8)return msg('새 비밀번호는 8자 이상이어야 합니다.',true);if(password!==confirmation)return msg('새 비밀번호가 서로 일치하지 않습니다.',true);$('save-password').disabled=true;const {error}=await sb.auth.updateUser({password});$('save-password').disabled=false;if(error)return msg(friendly(error),true);recoveryMode=false;history.replaceState(null,'',location.pathname);msg('비밀번호를 변경했습니다.');await refresh();};
+    $('logout').onclick=async()=>{const {error}=await sb.auth.signOut();msg(error?friendly(error):'로그아웃했습니다.',!!error);await refresh();};
+    $('save').onclick=async()=>{const content=$('body').value.trim();if(!content)return msg('메모를 입력하세요.',true);$('save').disabled=true;const {error}=await sb.from('memos').insert({content});$('save').disabled=false;if(error)msg('저장 실패: '+error.message,true);else{$('body').value='';msg('메모를 저장했습니다.');await list();}};
+    async function list(){const {data,error}=await sb.from('memos').select('id,content,created_at').order('created_at',{ascending:false});const el=$('notes');el.replaceChildren();if(error)return msg('조회 실패: '+error.message,true);if(!data.length){const p=document.createElement('small');p.textContent='아직 저장한 메모가 없습니다.';el.append(p);}for(const item of data){const r=document.createElement('article');r.className='memo';const t=document.createElement('div'),p=document.createElement('p'),stamp=document.createElement('time'),del=document.createElement('button');p.textContent=item.content;stamp.textContent=new Date(item.created_at).toLocaleString('ko-KR');del.textContent='삭제';del.className='danger';del.onclick=async()=>{if(!confirm('이 메모를 삭제할까요?'))return;del.disabled=true;const {error}=await sb.from('memos').delete().eq('id',item.id);msg(error?'삭제 실패: '+error.message:'메모를 삭제했습니다.',!!error);await list();};t.append(p,stamp);r.append(t,del);el.append(r);}}
+    sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){recoveryMode=true;setTimeout(()=>show('recovery'),0);}else if(!recoveryMode)setTimeout(refresh,0);});await refresh();
+  </script>
+</body>
+</html>
