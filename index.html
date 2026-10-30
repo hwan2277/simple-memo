@@ -1,41 +1,4 @@
-<!doctype html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#216b4b">
-  <title>Simple Memo | 나만의 메모장</title>
-  <style>
-    :root{font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#142b28;background:#f0f5f1}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}.app{width:min(100%,500px);background:#fff;border-radius:22px;box-shadow:0 16px 40px #1d453018;padding:32px}h1{margin:0 0 8px}.sub{color:#62736d;margin:0 0 25px}.field{display:block;margin:15px 0 6px;font-weight:600;font-size:14px}input,textarea{width:100%;border:1px solid #cad8d0;border-radius:10px;padding:13px;font:inherit}textarea{min-height:108px;resize:vertical}button{min-height:44px;font:inherit;border:0;border-radius:10px;padding:12px 18px;cursor:pointer;background:#216b4b;color:#fff;font-weight:650}button:disabled{opacity:.5;cursor:not-allowed}button.alt{background:#e8f1eb;color:#285b43}button.link{min-height:36px;padding:4px 0;color:#216b4b;background:transparent;font-size:13px}.danger{background:#fff0ef;color:#9b3129}.actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}.between{display:flex;align-items:center;justify-content:space-between;gap:10px}.between .field{margin-bottom:6px}.status{font-size:14px;min-height:22px;color:#426850;line-height:1.55}.status.error{color:#aa2929}.memo{padding:15px 0;border-bottom:1px solid #e4eae6;display:flex;justify-content:space-between;align-items:start;gap:12px}.memo p{white-space:pre-wrap;overflow-wrap:anywhere;margin:0}.memo time{display:block;color:#7b8f84;font-size:12px;margin-top:7px}header{display:flex;justify-content:space-between;align-items:start;gap:12px}#notes{margin-top:18px}.help{margin:16px 0 0;padding:13px;border-radius:10px;background:#f5f8f5;color:#63746b;font-size:13px;line-height:1.55}small{color:#66786d}[hidden]{display:none!important}@media(max-width:520px){body{padding:0}.app{min-height:100vh;border-radius:0;padding:28px 22px}}
-  </style>
-</head>
-<body>
-  <main class="app">
-    <header><div><h1>Simple Memo</h1><p class="sub">안전하게 나만 보는 메모</p></div><button id="logout" class="alt" hidden>로그아웃</button></header>
-    <section id="auth">
-      <h2>이메일로 로그인</h2><p class="sub">비밀번호 없이 메일로 받은 링크를 눌러 가입하고 로그인합니다.</p>
-      <label class="field" for="email">이메일</label><input id="email" type="email" autocomplete="username" placeholder="name@example.com">
-      <div class="actions"><button id="email-link" type="button">이메일 로그인 링크 받기</button></div>
-      <p class="help">처음 사용하는 이메일이면 계정이 자동으로 만들어집니다. 메일이 여러 개라면 가장 최근 링크만 한 번 눌러주세요.</p>
-    </section>
-    <section id="board" hidden><label class="field" for="body">새 메모</label><textarea id="body" maxlength="5000" placeholder="메모 내용을 입력하세요"></textarea><div class="actions"><button id="save">메모 저장</button></div><h2>내 메모</h2><div id="notes"></div></section>
-    <p id="message" class="status" role="status" aria-live="polite"></p>
-  </main>
-  <script type="module">
-    import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.102.0/+esm';
-    const APP_URL='https://hwan2277.github.io/simple-memo/';
-    const sb=createClient('https://otdzemizigpbdsvcqjwf.supabase.co','sb_publishable_-5bQ88180pari4w_T1Cm3Q_J82B5v9C',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'implicit'}});
-    const $=id=>document.getElementById(id),msg=(text,error=false)=>{$('message').textContent=text;$('message').classList.toggle('error',error)};
-    const friendly=error=>({email_address_not_authorized:'현재 메일 설정에서는 이 주소로 로그인 메일을 보낼 수 없습니다.',over_email_send_rate_limit:'메일 발송 한도를 초과했습니다. 잠시 후 한 번만 다시 시도하고, 기존 메일이 있다면 가장 최근 링크를 사용하세요.',otp_expired:'로그인 링크가 만료되었습니다. 새 링크를 한 번만 요청하세요.'}[error?.code]||error?.message||'요청을 처리하지 못했습니다.');
-    function show(name){for(const id of ['auth','board'])$(id).hidden=id!==name;$('logout').hidden=name!=='board';msg('');}
-    async function refresh(){const {data:{user}}=await sb.auth.getUser();show(user?'board':'auth');if(user){if(location.hash)history.replaceState(null,'',location.pathname);await list();}}
-    function startCooldown(seconds=60){const button=$('email-link');let left=seconds;button.disabled=true;button.textContent=`다시 요청 (${left}초)`;const timer=setInterval(()=>{left-=1;if(left<=0){clearInterval(timer);button.disabled=false;button.textContent='이메일 로그인 링크 받기';}else button.textContent=`다시 요청 (${left}초)`;},1000);}
-    $('email-link').onclick=async()=>{const email=$('email').value.trim().toLowerCase();if(!email||!$('email').checkValidity())return msg('올바른 이메일 주소를 입력하세요.',true);$('email-link').disabled=true;msg('로그인 메일을 요청하는 중...');const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:APP_URL,shouldCreateUser:true}});if(error){$('email-link').disabled=false;return msg(friendly(error),true);}startCooldown();msg('로그인 링크를 보냈습니다. 받은편지함과 스팸함에서 가장 최근 메일을 확인하세요.');};
-    $('logout').onclick=async()=>{const {error}=await sb.auth.signOut();msg(error?friendly(error):'로그아웃했습니다.',!!error);await refresh();};
-    $('save').onclick=async()=>{const content=$('body').value.trim();if(!content)return msg('메모를 입력하세요.',true);$('save').disabled=true;const {error}=await sb.from('memos').insert({content});$('save').disabled=false;if(error)msg('저장 실패: '+error.message,true);else{$('body').value='';msg('메모를 저장했습니다.');await list();}};
-    async function list(){const {data,error}=await sb.from('memos').select('id,content,created_at').order('created_at',{ascending:false});const el=$('notes');el.replaceChildren();if(error)return msg('조회 실패: '+error.message,true);if(!data.length){const p=document.createElement('small');p.textContent='아직 저장한 메모가 없습니다.';el.append(p);}for(const item of data){const r=document.createElement('article');r.className='memo';const t=document.createElement('div'),p=document.createElement('p'),stamp=document.createElement('time'),del=document.createElement('button');p.textContent=item.content;stamp.textContent=new Date(item.created_at).toLocaleString('ko-KR');del.textContent='삭제';del.className='danger';del.onclick=async()=>{if(!confirm('이 메모를 삭제할까요?'))return;del.disabled=true;const {error}=await sb.from('memos').delete().eq('id',item.id);msg(error?'삭제 실패: '+error.message:'메모를 삭제했습니다.',!!error);await list();};t.append(p,stamp);r.append(t,del);el.append(r);}}
-    $('email').addEventListener('keydown',event=>{if(event.key==='Enter')$('email-link').click();});
-    sb.auth.onAuthStateChange(()=>setTimeout(refresh,0));await refresh();
-  </script>
-</body>
-</html>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#285c49"><title>Simple Memo 2.0</title><link rel="stylesheet" href="css/style.css"></head><body>
+<aside><a class="brand" href="./">▧ <span>Simple Memo<small>작은 기록, 선명한 하루</small></span></a><button id="new" class="primary">＋ 새 메모</button><nav id="nav"></nav><div class="section-label">내 폴더 <button id="add-folder" aria-label="폴더 관리">＋</button></div><div id="folders"></div><button id="manage-tags" class="tag-manage">태그 관리</button><div class="aside-bottom"><span class="avatar">홍</span><div>나의 메모 공간<small id="identity">체험 모드 · 이 브라우저에 저장</small></div></div></aside>
+<main><header><button id="menu" aria-label="메뉴 열기">☰</button><div><span class="eyebrow">YOUR PERSONAL WORKSPACE</span><h1 id="view-title">나의 기록</h1></div><button id="auth-button">계정 연결</button></header><div class="notice" id="mode">체험 모드입니다. 샘플 메모는 이 브라우저에만 저장되며 기존 계정의 메모와 분리됩니다.</div><section id="stats" class="stats"></section><div class="toolbar"><label class="search">⌕ <input id="search" placeholder="제목, 내용, 태그로 찾아보세요" aria-label="메모 검색"></label><select id="sort" aria-label="정렬"><option value="updated_at">최근 수정순</option><option value="created_at">최근 작성순</option><option value="title">제목순</option></select><button id="layout" aria-label="보기 방식 전환">▦</button></div><div class="workspace"><section id="list" aria-label="메모 목록"></section><section id="editor" hidden aria-label="메모 편집"></section></div><p id="status" role="status" aria-live="polite"></p><footer>기록해 두세요. 다음의 내가 고마워할 거예요.</footer></main>
+<dialog id="auth-dialog"><form id="login"><h2>나만의 기록에 로그인</h2><p>기존 이메일 링크 인증을 그대로 사용합니다.</p><label>이메일<input id="email" type="email" required autocomplete="email"></label><button class="primary">로그인 링크 받기</button><button type="button" id="close-auth">닫기</button><p id="auth-status" role="status"></p></form></dialog><script type="module" src="js/app.js"></script></body></html>
